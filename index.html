@@ -17,7 +17,7 @@
 		.ui-btn-c.active{color:#3498db;}
 		.ui-btn-c.active .ui-icon{color:#3498db;}
 
-		.ui-header-fixed > .ui-btn-icon-notext{top:10px;}
+		/*.ui-header-fixed > .ui-btn-icon-notext{top:10px;}*/
 
 		.ui-popup-screen{background:#000;}
 		body{font-family: Microsoft YaHei;}
@@ -31,47 +31,117 @@
 	<script type="text/javascript" src="js/icomet.js"></script>
 	<script type="text/javascript" src="js/json2.js"></script>
 	<script type="text/javascript">
+		var userInfo = {};
+		var friendList = [{
+			name:"test1"
+		},{
+			name:"test2"
+		},{
+			name:"test3"
+		}];
+
+		function popupLogin(){
+			setTimeout(function(){
+				$("#popupLogin").popup("open", {
+					positionTo: "window",
+					transition: "pop"
+				});
+			},500);
+		}
+
+		function checkFriend(){
+			$(friendList).each(function(){
+				if(userInfo.name != this.name){
+					$.getJSON("/icometpush/info?cname="+this.name,function(data){
+						if(data && data.subscribers > 0){
+							$("#msg").append("<p id=" + data.cname + "><b>" + data.cname + "</b></p><p>在线</p>");
+							var content = {
+								type:"login",
+								name:userInfo.name
+							}
+							$.get("/icometpush/push?cname="+data.cname+"&content=" + encodeURI(JSON.stringify(content)));
+						}else{
+							$("#msg").append("<p id=" + data.cname + "><b>" + data.cname + "</b></p><p>离线</p>");
+						}
+					});
+				}
+			});
+		}
+
+		function logout(){
+			$.post("/icometpush/close?cname="+userInfo.name,function(data){
+				$(friendList).each(function(){
+					if(this.name != userInfo.name){
+						var content = {
+							type:"logout",
+							name:userInfo.name
+						}
+						$.get("/icometpush/push?cname="+this.name+"&content="+encodeURI(JSON.stringify(content)));
+					}
+				});
+
+				userInfo.name = null;
+				$("title").html("index");
+				$("#header h1").html("");
+				$("#msg").empty();
+				popupLogin();
+			});
+		}
+
+
+		function login(){
+			if ($("#un").val()) {
+				userInfo.name = $("#un").val();
+				$("#popupLogin").popup("close");
+
+				$("title").html("欢迎您,"+userInfo.name);
+				$("#header h1").html("欢迎您,"+userInfo.name);
+
+				var comet = new iComet({
+					channel: userInfo.name,
+					signUrl: 'http://jq.shchuwa.cn/icometpush/sign',
+					subUrl: 'http://jq.shchuwa.cn/icomet/sub',
+					callback: function(content) {
+						var content = JSON.parse(content);
+						
+						if(content.type == "login"){
+							$("#"+content.name).next().html("在线");
+						}else if(content.type == "logout"){
+							$("#"+content.name).next().html("离线");
+						}
+					}
+				});
+
+				checkFriend();
+			}
+		}
+
 
 		$(document).on("pagecreate", "#demo-page", function() {
-			$(document).on("swipeleft", "#demo-page", function(e) {
+			$(document).on("swipeleft", "#main", function(e) {
 				if ($(".ui-page-active").jqmData("panel") !== "open") {
 					$("#panel").panel("open");   
 				}
 			});
 		});
 
-		var userInfo = {};
+		$(document).on("pageshow","#demo-page", function() {
+			popupLogin();
+		});
 
 		$(function(){
 
-			// var comet = new iComet({
-			// 	channel: 'lingdu3',
-			// 	signUrl: 'http://jq.shchuwa.cn/icometpush/sign',
-			// 	subUrl: 'http://jq.shchuwa.cn/icomet/sub',
-			// 	callback: function(content) {
-			// 		// on server push
-			// 		//alert(content);
-			// 		//console.log(content);
-			// 		$("#msg").append("<p>"+content+"</p>")
-			// 	}
-			// });
 			$("#footer>.ui-btn").click(function(){
 				$(this).addClass("active").siblings().removeClass("active");
+			});
 
-
+			$("#quit").click(function(){
+				logout();
 			});
 
 			$("#buttonLogin").click(function(){
-				userInfo.name = $("#un").val();
-				$("#popupLogin").popup("close");
+				login();
 			});
-
-			$("#aaa").click(function(){
-				$("#popupLogin").popup("open", {
-					positionTo: "window",
-					transition: "pop"
-				});
-			}).click();
 		});
 	</script>
 </head>
@@ -79,27 +149,27 @@
 <div data-role="page" id="demo-page">
 	<div data-role="panel" id="panel" data-position="right" data-theme="f" data-display="push"></div>
 
-	<div data-role="header" data-theme="f" data-position="fixed">
-		<a data-iconpos="notext" href="#panel" data-role="button" data-icon="flat-menu" class="ui-btn-left"></a>
+	<div id="header" data-role="header" data-theme="f" data-position="fixed">
+		<a id="quit" data-iconpos="notext" href="#" data-role="button" data-icon="back" class="ui-btn-left"></a>
 		<h1></h1>
 		<a data-iconpos="notext" href="#panel" data-role="button" data-icon="flat-menu" class="ui-btn-right"></a>
 	</div>
 
-	<div data-role="content" role="main">
-		<a id="aaa">123</a>
+	<div id="main" data-role="content" role="main" data-title="123">
+		<div id="msg"></div>
 	</div>
 
 	<div id="footer" data-role="footer" data-theme="c" data-position="fixed">
 		<div class="ui-btn ui-shadow ui-btn-icon-left ui-btn-c active">
 			<span class="ui-btn-inner">
-				<span class="ui-btn-text">消息</span>
-				<span class="ui-icon ui-icon-flat-mail ui-icon-shadow">&nbsp;</span>
+				<span class="ui-btn-text">好友</span>
+				<span class="ui-icon ui-icon-flat-man ui-icon-shadow">&nbsp;</span>
 			</span>
 		</div>
 		<div class="ui-btn ui-shadow ui-btn-icon-left ui-btn-c">
 			<span class="ui-btn-inner">
-				<span class="ui-btn-text">好友</span>
-				<span class="ui-icon ui-icon-flat-man ui-icon-shadow">&nbsp;</span>
+				<span class="ui-btn-text">消息</span>
+				<span class="ui-icon ui-icon-flat-mail ui-icon-shadow">&nbsp;</span>
 			</span>
 		</div>
 	</div>
@@ -109,7 +179,7 @@
 			<h3>请登录</h3>
 			<input type="text" name="user" id="un" value="" placeholder="用户名" data-theme="f">
 			<input type="password" name="pass" id="pw" value="" placeholder="密码" data-theme="f">
-			<button id="buttonLogin" type="submit" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-check">登录</button>
+			<button id="buttonLogin" type="button" class="ui-btn ui-corner-all ui-shadow ui-btn-b ui-btn-icon-left ui-icon-check">登录</button>
 		</div>
 	</div>
 
